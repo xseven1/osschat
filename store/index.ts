@@ -6,15 +6,17 @@ import { supabase } from '@/lib/supabase'
 export type Role = 'user' | 'assistant' | 'system'
 
 export const FREE_MODELS = [
-  { id: 'openai/gpt-oss-120b:free',         label: 'GPT-OSS 120B',        provider: 'OpenAI'   },
-  { id: 'openai/gpt-oss-20b:free',           label: 'GPT-OSS 20B',         provider: 'OpenAI'   },
-  { id: 'meta-llama/llama-3.3-70b-instruct:free', label: 'Llama 3.3 70B', provider: 'Meta'     },
-  { id: 'deepseek/deepseek-r1:free',         label: 'DeepSeek R1',         provider: 'DeepSeek' },
-  { id: 'qwen/qwen3-coder-480b:free',        label: 'Qwen3 Coder 480B',    provider: 'Qwen'     },
-  { id: 'nvidia/llama-3.1-nemotron-ultra-253b-v1:free', label: 'Nemotron Ultra 253B', provider: 'NVIDIA' },
-  { id: 'mistralai/devstral-small:free',     label: 'Devstral Small',      provider: 'Mistral'  },
-  { id: 'google/gemma-3-27b-it:free',        label: 'Gemma 3 27B',         provider: 'Google'   },
-  { id: 'openrouter/free',                   label: 'Auto (Best Free)',     provider: 'OpenRouter' },
+  { id: 'openai/gpt-oss-120b:free',               label: 'GPT-OSS 120B',     provider: 'OpenAI',      context: '131K' },
+  { id: 'openai/gpt-oss-20b:free',                label: 'GPT-OSS 20B',      provider: 'OpenAI',      context: '131K' },
+  { id: 'nvidia/nemotron-3-super-120b-a12b:free', label: 'Nemotron 3 Super', provider: 'NVIDIA',      context: '262K' },
+  { id: 'tencent/hy3-preview:free',               label: 'Hy3 Preview',      provider: 'Tencent',     context: '262K' },
+  { id: 'inclusionai/ling-2.6-1t:free',           label: 'Ling-2.6 1T',      provider: 'inclusionAI', context: '262K' },
+  { id: 'inclusionai/ling-2.6-flash:free',        label: 'Ling-2.6 Flash',   provider: 'inclusionAI', context: '262K' },
+  { id: 'minimax/minimax-m2.5:free',              label: 'MiniMax M2.5',     provider: 'MiniMax',     context: '197K' },
+  { id: 'z-ai/glm-4.5-air:free',                 label: 'GLM 4.5 Air',      provider: 'Z.ai',        context: '131K' },
+  { id: 'deepseek/deepseek-r1:free',              label: 'DeepSeek R1',      provider: 'DeepSeek',    context: '164K' },
+  { id: 'meta-llama/llama-3.3-70b-instruct:free', label: 'Llama 3.3 70B',   provider: 'Meta',        context: '131K' },
+  { id: 'openrouter/free',                        label: 'Auto (Best Free)', provider: 'OpenRouter',  context: '—'    },
 ]
 
 export const DEFAULT_MODEL = FREE_MODELS[0].id

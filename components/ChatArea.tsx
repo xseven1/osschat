@@ -254,7 +254,7 @@ export default function ChatArea() {
           </div>
         )}
 
-        <div className="bg-[#13131e] border border-white/8 rounded-2xl overflow-hidden focus-within:border-white/15 transition-colors">
+        <div className="bg-[#13131e] border border-white/8 rounded-2xl overflow-visible focus-within:border-white/15 transition-colors">
           <textarea
             ref={textareaRef}
             value={input}
@@ -291,11 +291,11 @@ export default function ChatArea() {
                 </button>
 
                 {showModelPicker && (
-                  <div className="absolute bottom-full mb-2 left-0 w-64 bg-[#1a1a28] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50 animate-fade-in">
+                  <div className="absolute bottom-full mb-2 left-0 w-72 bg-[#1a1a28] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-[999] animate-fade-in">
                     <div className="px-3 py-2 border-b border-white/5">
                       <p className="text-[10px] text-white/30 uppercase tracking-widest font-semibold">Free Models</p>
                     </div>
-                    <div className="py-1 max-h-72 overflow-y-auto">
+                    <div className="py-1 max-h-80 overflow-y-auto">
                       {FREE_MODELS.map((m) => (
                         <button
                           key={m.id}
@@ -305,11 +305,14 @@ export default function ChatArea() {
                             currentModel === m.id && 'bg-indigo-500/10'
                           )}
                         >
-                          <div>
-                            <p className={clsx('text-xs font-medium', currentModel === m.id ? 'text-indigo-300' : 'text-white/70')}>{m.label}</p>
-                            <p className="text-[10px] text-white/30 mt-0.5">{m.provider}</p>
+                          <div className="min-w-0">
+                            <p className={clsx('text-xs font-medium truncate', currentModel === m.id ? 'text-indigo-300' : 'text-white/70')}>{m.label}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <p className="text-[10px] text-white/30">{m.provider}</p>
+                              <p className="text-[10px] text-white/20">{m.context}</p>
+                            </div>
                           </div>
-                          {currentModel === m.id && <div className="w-1.5 h-1.5 rounded-full bg-indigo-400" />}
+                          {currentModel === m.id && <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 flex-shrink-0" />}
                         </button>
                       ))}
                     </div>
