@@ -1,17 +1,14 @@
-import { Message } from '@/store'
-
-export const MODEL = 'openai/gpt-oss-120b:free'
-
 export async function streamChat(
   apiKey: string,
   messages: { role: string; content: string }[],
   systemPrompt: string,
+  model: string,
   onChunk: (chunk: string) => void,
   onDone: () => void,
   onError: (err: string) => void
 ) {
   const body = {
-    model: MODEL,
+    model,
     stream: true,
     messages: [
       ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
@@ -23,7 +20,7 @@ export async function streamChat(
     const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
         'HTTP-Referer': typeof window !== 'undefined' ? window.location.origin : '',
         'X-Title': 'OSS Chat',

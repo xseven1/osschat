@@ -6,29 +6,20 @@ import ChatArea from './ChatArea'
 import ApiKeyModal from './ApiKeyModal'
 
 export default function App() {
-  const { apiKey, loadAll, loading, projects, activeProjectId, setActiveProject } = useAppStore()
+  const { apiKey, loadAll, loading } = useAppStore()
 
   useEffect(() => {
     loadAll()
   }, [])
 
-  useEffect(() => {
-    if (!loading && projects.length > 0 && !activeProjectId) {
-      setActiveProject(projects[0].id)
-    }
-  }, [loading, projects, activeProjectId])
-
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-[#09090f]">
+    <div className="flex h-screen w-screen overflow-hidden bg-[#0c0c14]">
       {!apiKey && <ApiKeyModal />}
       {loading ? (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="flex items-center gap-3 text-[#4a4a68] text-sm">
-            <span className="typing-dot" />
-            <span className="typing-dot" />
-            <span className="typing-dot" />
-            <span className="ml-1">Loading from Supabase…</span>
-          </div>
+        <div className="flex-1 flex items-center justify-center gap-2 text-[#555570]">
+          <span className="typing-dot" />
+          <span className="typing-dot" />
+          <span className="typing-dot" />
         </div>
       ) : (
         <>
