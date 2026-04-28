@@ -49,7 +49,7 @@ export default function Sidebar() {
   }
 
   const commitRename = (projectId: string, chatId: string) => {
-    if (renameVal.trim()) updateChatTitle(projectId, chatId, renameVal.trim())
+    if (renameVal.trim()) updateChatTitle(chatId, renameVal.trim())
     setRenamingChatId(null)
   }
 
