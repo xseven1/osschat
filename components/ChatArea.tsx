@@ -54,6 +54,11 @@ export default function ChatArea() {
       { role: 'user' as const, content: userContent },
     ]
 
+    // Capture IDs now so callbacks never use stale closure values
+    const projectId = project.id
+    const chatId = chat.id
+    const systemPrompt = project.systemPrompt
+
     setStreaming(true)
     setStreamContent('')
 
@@ -65,15 +70,15 @@ export default function ChatArea() {
     await streamChat(
       apiKey,
       history,
-      project.systemPrompt,
+      systemPrompt,
       (chunk) => {
         if (aborted) return
         fullContent += chunk
-        setStreamContent(fullContent)
+        setStreamContent((prev) => prev + chunk)
       },
       () => {
-        if (!aborted && fullContent) {
-          addMessage(project.id, chat.id, { role: 'assistant', content: fullContent })
+        if (!aborted && fullContent.trim()) {
+          addMessage(projectId, chatId, { role: 'assistant', content: fullContent })
         }
         setStreaming(false)
         setStreamContent('')
