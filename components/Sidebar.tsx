@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { useAppStore, Project } from '@/store'
 import {
-  Plus, Trash2, ChevronDown, ChevronRight,
+  Plus, Trash2, ChevronDown, ChevronRight, PanelLeftClose, PanelLeftOpen,
   MessageSquare, Settings, Key, Edit2, Check, X, Zap, FolderOpen,
 } from 'lucide-react'
 import clsx from 'clsx'
@@ -16,6 +16,7 @@ export default function Sidebar() {
     updateChatTitle,
   } = useAppStore()
 
+  const [collapsed, setCollapsed] = useState(false)
   const [expandedProjects, setExpandedProjects] = useState<Record<string, boolean>>({})
   const [showProjectModal, setShowProjectModal] = useState(false)
   const [editingProject, setEditingProject] = useState<Project | null>(null)
@@ -26,7 +27,7 @@ export default function Sidebar() {
   const { apiKey, setApiKey } = useAppStore()
 
   const toggleProject = (id: string) =>
-    setExpandedProjects((e) => ({ ...e, [id]: e[id] === false ? true : e[id] === true ? false : true }))
+    setExpandedProjects((e) => ({ ...e, [id]: !isProjectOpen(id) }))
 
   const isProjectOpen = (id: string) => expandedProjects[id] !== false
 
@@ -36,7 +37,7 @@ export default function Sidebar() {
     setRenameVal(current)
   }
 
-  const commitRename = async (type: 'quick' | 'chat', id: string, projectId?: string) => {
+  const commitRename = async (type: 'quick' | 'chat', id: string) => {
     if (!renameVal.trim()) { setRenamingId(null); return }
     if (type === 'quick') await updateQuickChatTitle(id, renameVal.trim())
     else await updateChatTitle(id, renameVal.trim())
@@ -48,10 +49,64 @@ export default function Sidebar() {
     setShowKeyInput(false)
   }
 
+  // Collapsed state — show only icon rail
+  if (collapsed) {
+    return (
+      <aside className="flex flex-col h-screen w-12 flex-shrink-0 bg-[#0f0f1a] border-r border-white/5 items-center py-3 gap-3">
+        <button
+          onClick={() => setCollapsed(false)}
+          className="p-2 rounded-lg text-white/30 hover:text-white/70 hover:bg-white/5 transition-all"
+          title="Expand sidebar"
+        >
+          <PanelLeftOpen size={16} />
+        </button>
+        <div className="w-full h-px bg-white/5" />
+        {/* Quick chat dots */}
+        {quickChats.map((q) => {
+          const isActive = activeView?.type === 'quick' && activeView.chatId === q.id
+          return (
+            <button
+              key={q.id}
+              onClick={() => setActiveView({ type: 'quick', chatId: q.id })}
+              title={q.title}
+              className={clsx(
+                'w-7 h-7 rounded-lg flex items-center justify-center transition-all',
+                isActive ? 'bg-indigo-500/20 text-indigo-400' : 'text-white/25 hover:text-white/60 hover:bg-white/5'
+              )}
+            >
+              <Zap size={13} />
+            </button>
+          )
+        })}
+        <div className="w-full h-px bg-white/5" />
+        {/* Project color dots */}
+        {projects.map((p) => {
+          const isActive = activeView?.type === 'project' && activeView.projectId === p.id
+          return (
+            <button
+              key={p.id}
+              onClick={() => {
+                if (p.chats.length) setActiveView({ type: 'project', projectId: p.id, chatId: p.chats[0].id })
+              }}
+              title={p.name}
+              className={clsx(
+                'w-7 h-7 rounded-lg flex items-center justify-center transition-all',
+                isActive ? 'ring-1 ring-white/20' : 'hover:ring-1 hover:ring-white/10'
+              )}
+              style={{ background: p.color + '33' }}
+            >
+              <div className="w-2 h-2 rounded-sm" style={{ background: p.color }} />
+            </button>
+          )
+        })}
+      </aside>
+    )
+  }
+
   return (
     <>
-      <aside className="flex flex-col h-screen w-64 flex-shrink-0 bg-[#0f0f1a] border-r border-white/5">
-        {/* Logo */}
+      <aside className="flex flex-col h-screen w-64 flex-shrink-0 bg-[#0f0f1a] border-r border-white/5 transition-all">
+        {/* Logo + collapse button */}
         <div className="flex items-center justify-between px-4 h-14 border-b border-white/5">
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 rounded-lg bg-indigo-500/20 flex items-center justify-center">
@@ -59,6 +114,13 @@ export default function Sidebar() {
             </div>
             <span className="font-display font-bold text-[15px] text-white/90 tracking-tight">OSS Chat</span>
           </div>
+          <button
+            onClick={() => setCollapsed(true)}
+            className="p-1.5 rounded-lg text-white/20 hover:text-white/60 hover:bg-white/5 transition-all"
+            title="Collapse sidebar"
+          >
+            <PanelLeftClose size={15} />
+          </button>
         </div>
 
         <div className="flex-1 overflow-y-auto py-3 space-y-5">
@@ -161,7 +223,6 @@ export default function Sidebar() {
 
                 return (
                   <div key={project.id}>
-                    {/* Project header */}
                     <div
                       className={clsx(
                         'group flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer transition-all',
@@ -177,25 +238,14 @@ export default function Sidebar() {
                       <div className="w-2 h-2 rounded-sm flex-shrink-0" style={{ background: project.color }} />
                       <span className="flex-1 text-xs font-medium text-white/70 truncate">{project.name}</span>
                       <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setEditingProject(project); setShowProjectModal(true) }}
-                          className="p-0.5 text-white/30 hover:text-white/70"
-                        >
-                          <Settings size={10} />
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); deleteProject(project.id) }}
-                          className="p-0.5 text-white/30 hover:text-red-400"
-                        >
-                          <Trash2 size={10} />
-                        </button>
+                        <button onClick={(e) => { e.stopPropagation(); setEditingProject(project); setShowProjectModal(true) }} className="p-0.5 text-white/30 hover:text-white/70"><Settings size={10} /></button>
+                        <button onClick={(e) => { e.stopPropagation(); deleteProject(project.id) }} className="p-0.5 text-white/30 hover:text-red-400"><Trash2 size={10} /></button>
                       </div>
                       {isOpen
                         ? <ChevronDown size={11} className="text-white/20 flex-shrink-0" />
                         : <ChevronRight size={11} className="text-white/20 flex-shrink-0" />}
                     </div>
 
-                    {/* Project chats */}
                     {isOpen && (
                       <div className="ml-3 mt-0.5 space-y-0.5 pl-2 border-l border-white/5">
                         {project.chats.map((chat) => {
@@ -216,7 +266,7 @@ export default function Sidebar() {
                                   value={renameVal}
                                   onChange={(e) => setRenameVal(e.target.value)}
                                   onKeyDown={(e) => {
-                                    if (e.key === 'Enter') commitRename('chat', chat.id, project.id)
+                                    if (e.key === 'Enter') commitRename('chat', chat.id)
                                     if (e.key === 'Escape') setRenamingId(null)
                                   }}
                                   onClick={(e) => e.stopPropagation()}
@@ -228,7 +278,7 @@ export default function Sidebar() {
                               <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
                                 {renamingId === chat.id ? (
                                   <>
-                                    <button onClick={(e) => { e.stopPropagation(); commitRename('chat', chat.id, project.id) }} className="p-0.5 text-emerald-400"><Check size={10} /></button>
+                                    <button onClick={(e) => { e.stopPropagation(); commitRename('chat', chat.id) }} className="p-0.5 text-emerald-400"><Check size={10} /></button>
                                     <button onClick={(e) => { e.stopPropagation(); setRenamingId(null) }} className="p-0.5 text-red-400"><X size={10} /></button>
                                   </>
                                 ) : (
