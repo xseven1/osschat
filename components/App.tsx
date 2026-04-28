@@ -6,29 +6,38 @@ import ChatArea from './ChatArea'
 import ApiKeyModal from './ApiKeyModal'
 
 export default function App() {
-  const { apiKey, projects, activeProjectId, activeChatId, createProject, setActiveProject } = useAppStore()
+  const { apiKey, loadAll, loading, projects, activeProjectId, setActiveProject } = useAppStore()
 
-  // On first load with no projects, create a default one
   useEffect(() => {
-    if (projects.length === 0) {
-      createProject('General', 'Default project for general conversations')
-    }
+    loadAll()
   }, [])
 
-  // If active project was deleted, reset
   useEffect(() => {
-    if (projects.length > 0 && !activeProjectId) {
+    if (!loading && projects.length > 0 && !activeProjectId) {
       setActiveProject(projects[0].id)
     }
-  }, [projects, activeProjectId])
+  }, [loading, projects, activeProjectId])
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-[#09090f]">
       {!apiKey && <ApiKeyModal />}
-      <Sidebar />
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <ChatArea />
-      </main>
+      {loading ? (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="flex items-center gap-3 text-[#4a4a68] text-sm">
+            <span className="typing-dot" />
+            <span className="typing-dot" />
+            <span className="typing-dot" />
+            <span className="ml-1">Loading from Supabase…</span>
+          </div>
+        </div>
+      ) : (
+        <>
+          <Sidebar />
+          <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
+            <ChatArea />
+          </main>
+        </>
+      )}
     </div>
   )
 }

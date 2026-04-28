@@ -32,9 +32,9 @@ export default function Sidebar() {
     setActiveChat(chatId)
   }
 
-  const handleNewChat = (projectId: string, e: React.MouseEvent) => {
+  const handleNewChat = async (projectId: string, e: React.MouseEvent) => {
     e.stopPropagation()
-    createChat(projectId)
+    await createChat(projectId)
   }
 
   const handleDeleteChat = (projectId: string, chatId: string, e: React.MouseEvent) => {

@@ -1,64 +1,60 @@
-# OSS Chat
+# OSS Chat v2
 
-A clean, project-based chat interface for **GPT-OSS 120B** via OpenRouter. Built with Next.js 14 + Tailwind.
+GPT-OSS 120B chat interface with **Projects**, **persistent Supabase storage**, and **file uploads**.
 
-## Features
+## Setup (5 minutes)
 
-- 🗂 **Projects** — organize chats into separate workspaces, each with its own system prompt
-- 💬 **Multiple chats per project** — rename, delete, switch between them
-- ⚡ **Streaming responses** — real-time token streaming from OpenRouter
-- 🎨 **Markdown + syntax highlighting** — code blocks with copy button, tables, GFM
-- 💾 **Persistent storage** — everything saved to localStorage (survives refreshes)
-- 🔑 **API key management** — stored locally, never leaves your browser
+### 1. Supabase
 
-## Deploy to Vercel (easiest)
+1. Go to [supabase.com](https://supabase.com) → New project (free)
+2. Once created, go to **SQL Editor** and run the contents of `supabase-schema.sql`
+3. Go to **Project Settings → API** and copy:
+   - `Project URL`
+   - `anon` / `public` key
 
-### Option 1: GitHub → Vercel (recommended)
+### 2. Environment variables
 
-1. Push this folder to a GitHub repo
-2. Go to [vercel.com](https://vercel.com) → New Project → Import your repo
-3. Vercel auto-detects Next.js — just click **Deploy**
-4. Done. No environment variables needed.
+Copy `.env.local.example` to `.env.local` and fill in your values:
 
-### Option 2: Vercel CLI
-
-```bash
-npm i -g vercel
-cd osschat
-npm install
-vercel
+```
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 ```
 
-Follow the prompts. Done in ~1 minute.
-
-## Run Locally
+### 3. Run locally
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000)
+### 4. Deploy to Vercel
 
-## Usage
+Push to GitHub → import in Vercel → add the two env vars in **Settings → Environment Variables**, then deploy.
 
-1. On first load, enter your OpenRouter API key (`sk-or-v1-...`)
-   - Get one free at [openrouter.ai/keys](https://openrouter.ai/keys)
-2. A default **General** project is created automatically
-3. Create more projects via **+ New Project** in the sidebar
-   - Each project can have its own **system prompt** (e.g. "You are a coding assistant")
-4. Start chatting — `Enter` to send, `Shift+Enter` for newline
+Or via CLI:
+```bash
+npm i -g vercel
+vercel
+```
+
+## Features
+
+- 🗂 **Projects** — separate workspaces with names, colors, and per-project system prompts
+- 💬 **Multiple chats per project** — rename, delete, create new ones
+- 💾 **Supabase persistence** — all projects/chats/messages stored in Postgres
+- 📎 **File uploads** — attach txt, md, csv, json, ts, js, py, docx and more — content is injected into message context
+- ⚡ **Streaming** — real-time token streaming
+- 🎨 **Markdown + syntax highlighting** — code blocks with copy buttons
+- 🔑 **API key** — stored in localStorage only, never leaves your browser except to OpenRouter
 
 ## Model
 
-Uses `openai/gpt-oss-120b:free` — completely free on OpenRouter.
-Rate limits: 20 requests/minute, 200 requests/day on free tier.
+`openai/gpt-oss-120b:free` — free on OpenRouter.
+Rate limits: 20 req/min, 200 req/day free tier. 1000/day with $10 credit.
 
-## Tech Stack
+## Cost
 
-- Next.js 14 (App Router)
-- Tailwind CSS
-- Zustand (state + localStorage persistence)
-- react-markdown + remark-gfm
-- react-syntax-highlighter
-- OpenRouter API (streaming)
+- Vercel: **free**
+- Supabase: **free** (500MB storage)
+- OpenRouter GPT-OSS 120b: **free**
