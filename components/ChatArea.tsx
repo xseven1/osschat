@@ -3,7 +3,8 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { useAppStore, FREE_MODELS, DEFAULT_MODEL } from '@/store'
 import { streamChat, autoTitle } from '@/lib/openrouter'
 import { extractText, formatFileContext, SUPPORTED_EXTENSIONS, MAX_FILE_SIZE_MB } from '@/lib/files'
-import { Send, Trash2, StopCircle, Plus, Paperclip, X, FileText, ChevronDown, Zap } from 'lucide-react'
+import { buildMemoryContext, storeEmbedding } from '@/lib/memory'
+import { Send, Trash2, StopCircle, Plus, Paperclip, X, FileText, ChevronDown, Zap, Brain } from 'lucide-react'
 import MessageBubble from './MessageBubble'
 import clsx from 'clsx'
 
@@ -40,6 +41,7 @@ export default function ChatArea() {
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([])
   const [fileLoading, setFileLoading] = useState(false)
   const [showModelPicker, setShowModelPicker] = useState(false)
+  const [memoryStatus, setMemoryStatus] = useState<string | null>(null)
   const abortRef = useRef<(() => void) | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -115,29 +117,68 @@ export default function ChatArea() {
       if (msgs.length === 0) await updateQuickChatTitle(chatId, autoTitle([{ role: 'user', content: userText || files[0]?.name || 'File' }]))
 
       const history = [...msgs.map((m) => ({ role: m.role, content: m.content })), { role: 'user' as const, content: fullUserContent }]
-      runStream(modelToUse, history, '', (content) => addQuickMessage(chatId, { role: 'assistant', content }))
+      runStream(modelToUse, history, '', null, chatId, true, (content) => addQuickMessage(chatId, { role: 'assistant', content }))
     } else if (projectChatData) {
       const { project, chat } = projectChatData
       await addMessage(project.id, chat.id, { role: 'user', content: displayContent })
       if (msgs.length === 0) await updateChatTitle(chat.id, autoTitle([{ role: 'user', content: userText || files[0]?.name || 'File' }]))
 
       const history = [...msgs.map((m) => ({ role: m.role, content: m.content })), { role: 'user' as const, content: fullUserContent }]
-      runStream(modelToUse, history, project.systemPrompt, (content) => addMessage(project.id, chat.id, { role: 'assistant', content }))
+      runStream(modelToUse, history, project.systemPrompt, project.id, chat.id, false, (content) => addMessage(project.id, chat.id, { role: 'assistant', content }))
     }
   }, [input, attachedFiles, streaming, apiKey, activeView, currentMessages, currentModel, quickChat, projectChatData])
 
-  const runStream = (model: string, history: { role: string; content: string }[], sysPrompt: string, onDone: (content: string) => void) => {
+  const runStream = async (
+    model: string,
+    history: { role: string; content: string }[],
+    sysPrompt: string,
+    projectId: string | null,
+    chatId: string,
+    isQuick: boolean,
+    onDone: (content: string) => void
+  ) => {
     setStreaming(true)
     setStreamContent('')
+    setMemoryStatus(null)
+
+    // Build memory context before streaming
+    let finalSysPrompt = sysPrompt
+    if (!isQuick && projectId) {
+      const query = history[history.length - 1]?.content ?? ''
+      setMemoryStatus('Searching memory…')
+      const memCtx = await buildMemoryContext(
+        apiKey, query, projectId, chatId,
+        currentMessages, false
+      )
+      if (memCtx) {
+        finalSysPrompt = [sysPrompt, memCtx].filter(Boolean).join('
+
+')
+      }
+    }
+    setMemoryStatus(null)
+
     let fullContent = ''
     let aborted = false
     abortRef.current = () => { aborted = true }
 
     streamChat(
-      apiKey, history, sysPrompt, model,
+      apiKey, history, finalSysPrompt, model,
       (chunk) => { if (!aborted) { fullContent += chunk; setStreamContent((p) => p + chunk) } },
       async () => {
-        if (!aborted && fullContent.trim()) await onDone(fullContent)
+        if (!aborted && fullContent.trim()) {
+          await onDone(fullContent)
+          // Store embedding for future retrieval (fire and forget)
+          if (!isQuick && projectId) {
+            const msgId = crypto.randomUUID()
+            storeEmbedding(apiKey, msgId, projectId, chatId, 'assistant', fullContent).catch(() => {})
+            // Also embed the user message
+            const userMsg = history[history.length - 1]
+            if (userMsg) {
+              storeEmbedding(apiKey, crypto.randomUUID(), projectId, chatId, 'user', userMsg.content).catch(() => {})
+            }
+          }
+        }
         setStreaming(false); setStreamContent(''); abortRef.current = null
       },
       (err) => { setError(err); setStreaming(false); setStreamContent(''); abortRef.current = null }
@@ -185,6 +226,12 @@ export default function ChatArea() {
           <button onClick={handleNew} className="p-1.5 rounded-lg text-white/25 hover:text-white/70 hover:bg-white/5 transition-all" title="New chat">
             <Plus size={14} />
           </button>
+          {!isQuick && (
+            <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-indigo-500/10 border border-indigo-500/20" title="Memory-augmented: past conversations are automatically retrieved">
+              <Brain size={11} className="text-indigo-400" />
+              <span className="text-[10px] text-indigo-400">Memory</span>
+            </div>
+          )}
           <button onClick={handleClear} className="p-1.5 rounded-lg text-white/25 hover:text-red-400 hover:bg-white/5 transition-all" title="Clear chat">
             <Trash2 size={14} />
           </button>
@@ -220,8 +267,13 @@ export default function ChatArea() {
             <div className="w-7 h-7 rounded-xl bg-indigo-500/10 flex items-center justify-center flex-shrink-0">
               <div className="w-2 h-2 rounded-full bg-indigo-400/60" />
             </div>
-            <div className="flex items-center gap-1.5 pt-2.5">
-              <span className="typing-dot" /><span className="typing-dot" /><span className="typing-dot" />
+            <div className="flex flex-col gap-1 pt-2">
+              {memoryStatus && (
+                <p className="text-[10px] text-indigo-400/60 animate-pulse">{memoryStatus}</p>
+              )}
+              <div className="flex items-center gap-1.5">
+                <span className="typing-dot" /><span className="typing-dot" /><span className="typing-dot" />
+              </div>
             </div>
           </div>
         )}
