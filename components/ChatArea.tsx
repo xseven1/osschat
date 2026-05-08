@@ -26,7 +26,6 @@ export default function ChatArea() {
   const projectChatData = getActiveProjectChat()
   const isQuick = activeView?.type === 'quick'
 
-  // Unified accessors
   const currentMessages = isQuick ? (quickChat?.messages ?? []) : (projectChatData?.chat.messages ?? [])
   const currentModel = isQuick ? (quickChat?.model ?? DEFAULT_MODEL) : (projectChatData?.chat.model ?? DEFAULT_MODEL)
   const currentTitle = isQuick ? quickChat?.title : projectChatData?.chat.title
@@ -43,6 +42,7 @@ export default function ChatArea() {
   const [showModelPicker, setShowModelPicker] = useState(false)
   const [memoryStatus, setMemoryStatus] = useState<string | null>(null)
   const abortRef = useRef<(() => void) | null>(null)
+  const fullContentRef = useRef<string>('')
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -59,7 +59,6 @@ export default function ChatArea() {
 
   useEffect(() => { setAttachedFiles([]) }, [activeView])
 
-  // Close model picker on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (modelPickerRef.current && !modelPickerRef.current.contains(e.target as Node)) {
@@ -105,7 +104,7 @@ export default function ChatArea() {
     setError('')
 
     const fileContext = files.map((f) => formatFileContext(f.name, f.content)).join('\n\n')
-    const fullUserContent = fileContext ? `${fileContext}${userText ? `\n\n${userText}` : ''}` : userText
+    const fullUserContent = fileContext ? `${fileContext}${userText ? '\n\n' + userText : ''}` : userText
     const displayContent = [files.length ? `📎 ${files.map((f) => f.name).join(', ')}` : '', userText].filter(Boolean).join('\n')
 
     const modelToUse = currentModel
@@ -115,16 +114,14 @@ export default function ChatArea() {
       const chatId = quickChat.id
       await addQuickMessage(chatId, { role: 'user', content: displayContent })
       if (msgs.length === 0) await updateQuickChatTitle(chatId, autoTitle([{ role: 'user', content: userText || files[0]?.name || 'File' }]))
-
       const history = [...msgs.map((m) => ({ role: m.role, content: m.content })), { role: 'user' as const, content: fullUserContent }]
-      runStream(modelToUse, history, '', null, chatId, true, (content) => addQuickMessage(chatId, { role: 'assistant', content }))
+      runStream(modelToUse, history, '', null, chatId, true, (c) => addQuickMessage(chatId, { role: 'assistant', content: c }))
     } else if (projectChatData) {
       const { project, chat } = projectChatData
       await addMessage(project.id, chat.id, { role: 'user', content: displayContent })
       if (msgs.length === 0) await updateChatTitle(chat.id, autoTitle([{ role: 'user', content: userText || files[0]?.name || 'File' }]))
-
       const history = [...msgs.map((m) => ({ role: m.role, content: m.content })), { role: 'user' as const, content: fullUserContent }]
-      runStream(modelToUse, history, project.systemPrompt, project.id, chat.id, false, (content) => addMessage(project.id, chat.id, { role: 'assistant', content }))
+      runStream(modelToUse, history, project.systemPrompt, project.id, chat.id, false, (c) => addMessage(project.id, chat.id, { role: 'assistant', content: c }))
     }
   }, [input, attachedFiles, streaming, apiKey, activeView, currentMessages, currentModel, quickChat, projectChatData])
 
@@ -134,50 +131,51 @@ export default function ChatArea() {
     sysPrompt: string,
     projectId: string | null,
     chatId: string,
-    isQuick: boolean,
+    isQuickChat: boolean,
     onDone: (content: string) => void
   ) => {
     setStreaming(true)
     setStreamContent('')
     setMemoryStatus(null)
 
-    // Build memory context before streaming
     let finalSysPrompt = sysPrompt
-    if (!isQuick && projectId) {
+    if (!isQuickChat && projectId) {
       const query = history[history.length - 1]?.content ?? ''
       setMemoryStatus('Searching memory…')
-      const memCtx = await buildMemoryContext(
-        apiKey, query, projectId, chatId,
-        currentMessages, false
-      )
+      const memCtx = await buildMemoryContext(apiKey, query, projectId, chatId, currentMessages, false)
       if (memCtx) {
-        finalSysPrompt = [sysPrompt, memCtx].filter(Boolean).join('\n\n')
+        finalSysPrompt = (sysPrompt ? sysPrompt + '\n\n' : '') + memCtx
       }
     }
     setMemoryStatus(null)
 
-    let fullContent = ''
+    fullContentRef.current = ''
     let aborted = false
     abortRef.current = () => { aborted = true }
 
     streamChat(
       apiKey, history, finalSysPrompt, model,
-      (chunk) => { if (!aborted) { fullContent += chunk; setStreamContent((p) => p + chunk) } },
+      (chunk) => {
+        if (!aborted) {
+          fullContentRef.current += chunk
+          setStreamContent((p) => p + chunk)
+        }
+      },
       async () => {
-        if (!aborted && fullContent.trim()) {
-          await onDone(fullContent)
-          // Store embedding for future retrieval (fire and forget)
-          if (!isQuick && projectId) {
-            const msgId = crypto.randomUUID()
-            storeEmbedding(apiKey, msgId, projectId, chatId, 'assistant', fullContent).catch(() => {})
-            // Also embed the user message
+        const finalContent = fullContentRef.current
+        if (!aborted && finalContent.trim()) {
+          await onDone(finalContent)
+          if (!isQuickChat && projectId) {
+            storeEmbedding(apiKey, crypto.randomUUID(), projectId, chatId, 'assistant', finalContent).catch(() => {})
             const userMsg = history[history.length - 1]
             if (userMsg) {
               storeEmbedding(apiKey, crypto.randomUUID(), projectId, chatId, 'user', userMsg.content).catch(() => {})
             }
           }
         }
-        setStreaming(false); setStreamContent(''); abortRef.current = null
+        setStreaming(false)
+        setStreamContent('')
+        abortRef.current = null
       },
       (err) => { setError(err); setStreaming(false); setStreamContent(''); abortRef.current = null }
     )
@@ -289,7 +287,6 @@ export default function ChatArea() {
       <div className="px-4 md:px-8 pb-5 pt-2 flex-shrink-0">
         {!apiKey && <p className="text-xs text-amber-400/80 text-center mb-2">Set your API key in the sidebar to start chatting</p>}
 
-        {/* Attached files */}
         {attachedFiles.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-2.5">
             {attachedFiles.map((f) => (
@@ -316,10 +313,8 @@ export default function ChatArea() {
             className="w-full bg-transparent px-4 pt-3.5 pb-2 text-sm text-white/80 placeholder:text-white/20 outline-none resize-none min-h-[44px] max-h-[180px] overflow-y-auto leading-6 disabled:cursor-not-allowed"
           />
 
-          {/* Bottom bar */}
           <div className="flex items-center justify-between px-3 pb-3 pt-1">
             <div className="flex items-center gap-2">
-              {/* File attach */}
               <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={!apiKey || streaming || fileLoading}
@@ -330,7 +325,6 @@ export default function ChatArea() {
               </button>
               <input ref={fileInputRef} type="file" multiple accept={SUPPORTED_EXTENSIONS.map((e) => `.${e}`).join(',')} onChange={handleFileSelect} className="hidden" />
 
-              {/* Model picker */}
               <div className="relative" ref={modelPickerRef}>
                 <button
                   onClick={() => setShowModelPicker((p) => !p)}
@@ -371,7 +365,6 @@ export default function ChatArea() {
               </div>
             </div>
 
-            {/* Send / Stop */}
             {streaming ? (
               <button onClick={handleStop} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-all text-xs">
                 <StopCircle size={13} />
