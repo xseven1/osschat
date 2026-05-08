@@ -151,9 +151,7 @@ export default function ChatArea() {
         currentMessages, false
       )
       if (memCtx) {
-        finalSysPrompt = [sysPrompt, memCtx].filter(Boolean).join('
-
-')
+        finalSysPrompt = [sysPrompt, memCtx].filter(Boolean).join('\n\n')
       }
     }
     setMemoryStatus(null)
